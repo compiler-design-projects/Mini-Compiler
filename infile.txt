@@ -1,0 +1,8 @@
+char bA = 10, ch, ch2 = 'b', cl=10, c[100];
+char b;
+int a = 'A';
+int cd[10];
+int na = 12;
+
+int main() {
+a = ( * /
