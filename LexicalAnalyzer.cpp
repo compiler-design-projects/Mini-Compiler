@@ -1010,10 +1010,7 @@ void error(string s) {
 void consumeToken() {
 	string name;
 	getToken();
-	cout << "token : ";
-	printToken();
 	if (ctoken.first == OP || ctoken.first == PUN) {
-		cout << "lets have a chat" << endl;
 		switch (ctoken.second) {
 		case 40: {
 			char temp[TS] = { '(' };
@@ -1065,9 +1062,8 @@ void parseExp() {
 void assignment() {
 	char arg[TS]; char index[TS];
 	std::pair<int, int> p = ctoken;
-	printToken();
 	if (p.first == RES) {
-		error("A reserved word used in an assignment!");			//if reserved
+		error("A reserved word used in an assignment!");		//if reserved
 	}
 	if (!s->isDeclared(ctoken.first, ctoken.second)) {			//if undeclared
 		error("An undeclared variable in an assignment!");
@@ -1097,18 +1093,14 @@ void exp(char *result)
 	char arg1[TS], arg2[TS];
 	strcpy_s(arg1, result);	 			//arg1 = b
 	char op;
-	cout << "In exp(), current token: " << arg1 << endl;
 	term(arg1);				//term(b)
-	cout << "Back in exp(), current token: " << token << endl;
 	while (token[0] == '-' || token[0] == '+') {
 		op = token[0];
-		cout << "CONSUMING OPERATOR: " << token << endl;
 		consumeToken();
-		cout << "next token: " << token; 
 		strcpy_s(arg2, token);
 		term(arg2);
 		newtemp(result);
-		cout << "cout from exp " << op << "\t" << arg1 << "\t" << arg2 << "\t" << result << endl;
+		cout << op << "\t" << arg1 << "\t" << arg2 << "\t" << result << endl;
 		strcpy(arg1, result);
 	}
 	strcpy(result, arg1);
@@ -1119,17 +1111,14 @@ void term(char* result)
 	char arg1[TS], arg2[TS];
 	char op;
 	strcpy_s(arg1, result);							//arg1 = b
-	cout << "In term(), current token: " << arg1 << endl;
 	factor(arg1);
-	cout << "Back in term(), current token: " << token << endl;	//should be op
 	while (token[0] == '*' || token[0] == '/') {			//could totally keep this as token..i did
 		op = token[0];								//set op for printing
-		cout << "COSUMING OPERATOR: " << token << endl;		//eat da op but it is saved still
 		consumeToken();									//next token after op == c
 		strcpy_s(arg2, token);
 		factor(arg2);								// arg2 = c
 		newtemp(result);									//result = t0
-		cout << " from term" << op << "\t" << arg1 << "\t" << arg2 << "\t" << result << endl;
+		cout << op << "\t" << arg1 << "\t" << arg2 << "\t" << result << endl;
 		strcpy(arg1, result);
 	}
 	strcpy(result, arg1);
@@ -1137,28 +1126,43 @@ void term(char* result)
 
 void factor(char *result)
 {
-	cout << "In factor(), current token: " << token << endl;
 	if (result[0] == '(') {					//if arg
-		cout << "CONSUMING: " << token << endl;
 		consumeToken();
 		strcpy(result, token);
 		exp(result);
 		if (token[0] == ')') {
-			//cout << "Error" << endl;
-			cout << "CONSUMING: " << token << endl;
 			consumeToken();
 		}
-
+		//else error 
 	}
 
 	else if (isalpha(result[0]) || isdigit(result[0]))		//if b is ID
 	{
-		cout << "CONSUMING ID: " << token << endl;		//eat b
 		if (token[0] != ';') {							//if not semicolon, then you want to get the op
 			consumeToken();
 		}
 	}
 
+	else if (result[0] == '-') {
+		char temp[TS];
+		consumeToken();
+		if (token[0] == '(') {
+			consumeToken();
+			strcpy(result, token);
+			exp(result);
+			strcpy(temp, result);
+			newtemp(result);
+			cout << '-' << "\t" << temp << "\t\t" << result << endl;
+		}
+
+		else {
+			char name[TS];
+			strcpy(name, token);
+			consumeToken();
+			newtemp(result);
+			cout << '-' << "\t" << name << "\t\t" << result << endl;
+		}
+	}
 }
 
 void newtemp(char *result) {
