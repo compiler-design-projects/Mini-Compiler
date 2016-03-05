@@ -48,8 +48,11 @@ const int INCOP = 208;		//++
 const int DECOP = 209;		//--
 const int ASG = 61;			//=
 const int TS = 5;			//temp size
+const string TAR = "[ ]= ";
+
 
 char token[TS];
+char ctemp[TS];
 int atype;
 int avalue;
 int toktype;
@@ -84,6 +87,8 @@ void exp(char *result);
 void term(char *result);
 void factor(char* result);
 void newtemp(char *result);
+void input();
+void output();
 //------------------------------------------------class tableEntry-----------------------------------------
 class tableEntry {
 	friend class SymbolTable;
@@ -287,6 +292,7 @@ public: SymbolTable() {
 				count++;
 				tor++;
 			}
+			error("identifier not found in symbol table!"); 
 		}
 
 		bool isArray(int type, int value) {
@@ -415,7 +421,7 @@ void classifyChar() {
 		charClass = 3;
 	}
 
-	if (ch == '+' || ch == '-' || ch == '*' || ch == '/') {
+	if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
 		charClass = 4;
 	}
 
@@ -542,7 +548,6 @@ void isArray(SymbolTable *s) {
 			parse(s);
 		}
 		getToken();
-		printToken();
 		if (ctoken.first == 113 && ctoken.second == 44) {			//if comma, go back into list
 			toktype = eletype;
 			if (identifier(s)) {
@@ -775,9 +780,10 @@ void lex(SymbolTable *s) {
 
 		}
 
-		else
+		else {
 			cout << OP << "\t" << (int)ch << "\t" << lexeme << endl;
-		out2 << OP << "\t" << (int)ch << endl;
+			out2 << OP << "\t" << (int)ch << endl;
+		}
 
 
 
@@ -820,10 +826,10 @@ void lex(SymbolTable *s) {
 				break;
 			}
 			int hashnum2 = hashfun(astring.at(0), tablesize);
-			int pos2 = s->size(hashnum2);
+			int pos2 = s->size(ST);			//used to be hashnum2
 			if (s->checkTable(astring)) {
-				tableEntry *ent = new tableEntry(astring, ST, pos2, 0, 0);
-				s->push_back(hashnum2, ent);
+				tableEntry *ent = new tableEntry(astring, ST, pos2, 0, 0);			
+				s->push_back(32, ent);
 				cout << ST << "\t" << pos2 << "\t" << astring << endl;
 				out2 << ST << "\t" << pos2 << endl;
 			}
@@ -1012,6 +1018,10 @@ void consumeToken() {
 	getToken();
 	if (ctoken.first == OP || ctoken.first == PUN) {
 		switch (ctoken.second) {
+		case 37: {
+			char temp[TS] = { '%' };
+			strcpy(token, temp);
+			break;	}
 		case 40: {
 			char temp[TS] = { '(' };
 			strcpy(token, temp);
@@ -1036,6 +1046,14 @@ void consumeToken() {
 			char temp[TS] = { '/' };
 			strcpy(token, temp);
 			break; }
+		case 91: {
+			char temp[TS] = { '[' };
+			strcpy(token, temp);
+			break; }
+		case 93: {
+			char temp[TS] = { ']' };
+			strcpy(token, temp);
+			break; }
 		}
 	}
 	else {
@@ -1047,13 +1065,23 @@ void consumeToken() {
 }
 void parseExp() {
 	getToken();
-	if (ctoken.first == 111 && ctoken.second == 25) {
-		cout << "this looks like a cout to me!" << endl;
+	if (ctoken.first == RES && ctoken.second == 18) {
+		getToken();
+		if (ctoken.first == OP && ctoken.second == IN) {
+			input();
+			if (!(ctoken.first == PUN && ctoken.second == 59)) { error("Missing semicolon after cin!"); }
+		}
+		else error("cin missing '>>' operator!");
 	}
-	else if (ctoken.first == 111 && ctoken.second == 18) {
-		cout << "this looks like a cin to me!" << endl;
+	else if (ctoken.first == RES && ctoken.second == 25) {
+		getToken();
+		if (ctoken.first == OP && ctoken.second == OUT) {
+			output();
+			if (!(ctoken.first == PUN && ctoken.second == 59)) { error("Missing semicolon after cout!"); }
+		}
+		else error("cout missing '<<' operator!");
 	}
-	else {
+	else if (ctoken.first < 51) {
 		assignment();
 	}
 
@@ -1069,9 +1097,19 @@ void assignment() {
 		error("An undeclared variable in an assignment!");
 	}
 	if (s->isArray(p.first, p.second)) {				//if array
-	//	index = s->arGetIndex(ctoken.first, ctoken.second);
-		//cout << "this is an array" << endl;
-		//cout << "size: " << index;
+		char tmp[TS];
+		consumeToken();
+		{	
+			if (token[0] == '[') {
+				consumeToken();
+				strcpy(arg, token);
+				exp(arg);
+			}
+			if (token[0] == ']') {
+				newtemp(index);
+				cout << '=' << "\t" << arg << "\t\t" << index << endl;
+			}
+		}
 	}
 	getToken();
 	if (!(ctoken.first == OP && ctoken.second == ASG)) {
@@ -1081,9 +1119,9 @@ void assignment() {
 	strcpy(arg, token);
 	exp(arg);
 	if (s->isArray(p.first, p.second)) {
-		cout << "?" << '\t' << arg << '\t' << index << '\t' << s->getName(p.first, p.second);
+	  cout << TAR << '\t' << arg << '\t' << index << '\t' << s->getName(p.first, p.second) << endl;
+	  strcpy(ctemp, index); 
 	}
-
 	else cout << "=" << '\t' << arg << "\t\t" << s->getName(p.first, p.second) << endl;
 
 }
@@ -1112,7 +1150,7 @@ void term(char* result)
 	char op;
 	strcpy_s(arg1, result);							//arg1 = b
 	factor(arg1);
-	while (token[0] == '*' || token[0] == '/') {			//could totally keep this as token..i did
+	while (token[0] == '*' || token[0] == '/' || token[0] == '%') {			//could totally keep this as token..i did
 		op = token[0];								//set op for printing
 		consumeToken();									//next token after op == c
 		strcpy_s(arg2, token);
@@ -1136,9 +1174,32 @@ void factor(char *result)
 		//else error 
 	}
 
-	else if (isalpha(result[0]) || isdigit(result[0]))		//if b is ID
+	else if (isalpha(result[0]))		//if b is ID
 	{
-		if (token[0] != ';') {							//if not semicolon, then you want to get the op
+		char index[TS], tmp[TS], name[TS]; 
+		if (s->isArray(ctoken.first, ctoken.second)) {		//if identifier is array
+			consumeToken();
+			strcpy(name, result);
+			if (token[0] == '[') {				//if next token is [
+				consumeToken();
+				strcpy(index, token);
+				exp(index);				
+			}
+			if (token[0] == ']') {
+				newtemp(tmp);
+				cout << '=' << "\t" << index << "\t\t" << tmp << endl;
+				consumeToken();
+				newtemp(result);
+				cout << TAR << "\t" << name << "\t" << tmp << "\t" << result << endl;
+ 			}
+		}
+
+		else if (token[0] != ';') {							
+			consumeToken();
+		}
+	}
+	else if (isdigit(result[0])) {
+		if (token[0] != ';') {
 			consumeToken();
 		}
 	}
@@ -1172,6 +1233,61 @@ void newtemp(char *result) {
 	strcat(result, pchar);
 	tempnum++;
 }
+void input() {
+
+	do {
+		getToken();
+		if (s->isDeclared(ctoken.first, ctoken.second)) {
+			cout << "cin" << "\t" << s->getName(ctoken.first, ctoken.second) << endl;
+			getToken();
+		}
+		else error("identifier was not declared!");
+		} while (ctoken.first == OP && ctoken.second == IN);
+}
+void output() {
+	do {
+		getToken();
+		if (ctoken.first == ST) {
+			cout << "cout" << "\t" << "\"" << s->getName(ctoken.first, ctoken.second) << "\"" << endl;
+			getToken();
+		}
+		else if (ctoken.first == 111 && ctoken.second == 36) {
+			cout << "cout" << "\t" << "\'" << "\\n" << "\'" << endl;
+			getToken();
+		}
+
+		else if (ctoken.first == 107 && ctoken.second == 32) {
+			cout << "cout" << "\t" << "\'  \'" << endl;
+			getToken();
+		}
+
+		else if (s->isArray(ctoken.first, ctoken.second)) {
+			char tmp[TS], index[TS], arg[TS];
+			string name = s->getName(ctoken.first, ctoken.second);
+			consumeToken();	
+			if (token[0] == '[') {				//if next token is [
+				consumeToken();
+				strcpy(index, token);
+				exp(index);
+			}
+			if (token[0] == ']') {
+				newtemp(tmp);
+				cout << '=' << "\t" << index << "\t\t" << tmp << endl;
+				consumeToken();
+				newtemp(arg); //result
+				cout << TAR << "\t" << name << "\t" << tmp << "\t" << arg << endl; //result
+			}
+			cout << "cout" << "\t" << arg << endl;
+			
+		}
+		else if (s->isDeclared(ctoken.first, ctoken.second)) {
+			cout << "cout" << "\t" << s->getName(ctoken.first, ctoken.second) << endl;
+			getToken();
+		}
+		else error("identifier was not declared!");
+	} while (ctoken.first == OP && ctoken.second == OUT); 
+}
+
 
 
 
